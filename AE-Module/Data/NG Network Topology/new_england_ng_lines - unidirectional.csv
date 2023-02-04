@@ -1,0 +1,18 @@
+Pipeline,Capacity (MMBtu),FIPS_from,from_node,FIPS_to,to_node
+Algonquin Gas Trans Co,1235000,9015,5,44007,6
+Algonquin Gas Trans Co,275000,25027,17,44007,6
+Algonquin Gas Trans Co,275000,44007,6,9015,5
+Algonquin Gas Trans Co,1180000,44007,6,25027,17
+Granite State Gas Trans Inc,31000,23031,14,33015,4
+Granite State Gas Trans Inc,31000,25009,15,33015,4
+Granite State Gas Trans Inc,31000,33015,4,23031,14
+Maritimes/Northeast PL Co,896000,23031,14,33015,4
+Maritimes/Northeast PL Co,846000,33015,4,25009,15
+Portland Gas Trans Co,251000,23017,12,33007,1
+Portland Gas Trans Co,432000,33007,1,23017,12
+Tennessee Gas Pipeline Co,125000,9003,16,25013,2
+Tennessee Gas Pipeline Co,164000,25013,2,9003,16
+Tennessee Gas Pipeline Co,201000,25009,15,33015,4
+Tennessee Gas Pipeline Co,173000,25021,10,44007,6
+Maritimes/Northeast PL Co,896000,33015,4,23031,14
+Maritimes/Northeast PL Co,846000,25009,15,33015,4

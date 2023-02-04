@@ -1,0 +1,15 @@
+
+Unlike AE paper model, the model used in the paper:
+- Rep days are presented in the old format where only medoids and their weights are printed in the csv file
+- Models flow in both systems as a pipe and bubble model
+- No NG storage
+- Only one case (last case, the original one formulated in the paper)
+- NG system is planned over rep. days not full year
+- No CCS costs/variables
+- No unit commitement (UC)
+- Only RM scenarion (BAU) is considered
+- offshore wind can be built in any node not just MA and CT
+- No regional cost coefficients
+- No resource availibility constraint
+
+this repo contains codes and data for ICCPS paper entitled "Learning Spatio-Temporal Aggregations for Large-Scale Capacity Expansion Problems" See the full documentation of the code in the REP.pdf
