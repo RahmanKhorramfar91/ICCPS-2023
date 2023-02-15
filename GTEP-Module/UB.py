@@ -16,10 +16,10 @@ import numpy as np;
 Setting.Power_network_size = 6; 
 import reconfig4segmentation;
 reconfig4segmentation.Cluster_reconfig(Setting.Power_network_size);
-Setting.num_rep_days = 3;
+Setting.num_rep_days = 4;
 Setting.solver_gap = 0.01;
-Setting.wall_clock_time_lim = 1; #hour
-Setting.solver_thread_num = 4;
+Setting.wall_clock_time_lim = 2; #hour
+Setting.solver_thread_num = 6;
 
 if len(sys.argv)>1:
     print(str(sys.argv));
@@ -43,7 +43,7 @@ Setting.rep_day_folder = 'joint_CF_with_extreme_days';
 Setting.emis_case = 4;
 Setting.electrification_scenario = 'RM';   # currently HM and RM, but can be MM, MS,MR etc.
 Setting.emis_reduc_goal = 0.8; # %80
-Setting.VRE_share = 0.5;
+Setting.VRE_share = 0.0;
 Setting.UC_active = False;
 Setting.relax_UC_vars = True;
 Setting.relax_int_vars = 0;
@@ -103,7 +103,7 @@ Setting.Power_network_size = 88; #88 or 6
 reconfig4segmentation.Cluster_reconfig(Setting.Power_network_size);
 
 Setting.rep_day_folder = 'joint_CF_with_extreme_days';
-Setting.num_rep_days = 2;
+Setting.num_rep_days = 4;
 del Modules_UB;
 
 Data = Rub_problem_data();

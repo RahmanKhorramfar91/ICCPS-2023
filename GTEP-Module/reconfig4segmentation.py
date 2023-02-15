@@ -42,8 +42,8 @@ def Cluster_reconfig(nC):
     dfb2 = pd.DataFrame(columns=dfb.columns);
     count = 0;
     for i in range(len(dfb)):
-        dfb['from bus'].iloc[i] = node2zone[dfb['from bus'].iloc[i]];
-        dfb['to bus'].iloc[i] = node2zone[dfb['to bus'].iloc[i]];
+        dfb.loc[i,'from bus'] = node2zone[dfb['from bus'].iloc[i]];
+        dfb.loc[i,'to bus'] = node2zone[dfb['to bus'].iloc[i]];
         f1 =dfb['from bus'].iloc[i];
         t1 =dfb['to bus'].iloc[i];
         if t1!=f1:
@@ -58,7 +58,7 @@ def Cluster_reconfig(nC):
     dfp['zone_id'] = np.zeros(len(dfp));
     plt_cap = {'ng':173,'solar':6.3,'wind':42,'hydro':23,'nuclear':933};
     for i in range(len(dfp)):
-        dfp['zone_id'].iloc[i] = int(node2zone[dfp['bus_num'].iloc[i]]+1);
+        dfp.loc[i,'zone_id']= int(node2zone[dfp['bus_num'].iloc[i]]+1);
     
     s1 = {'Pmax':'sum','Pmin':'sum','GenFuelCost':'mean',
               'GenIOB':'mean','GenIOC':'mean','ramp_30':'sum','count':'sum'};   
@@ -72,7 +72,7 @@ def Cluster_reconfig(nC):
         if dfp1['plant_type'].iloc[i]=='dfo' or dfp1['plant_type'].iloc[i]=='coal' or dfp1['plant_type'].iloc[i]=='wind_offshore':
             continue;
         
-        dfp1['adjusted_count'].iloc[i] = max(1, np.round(dfp1['Pmax'].iloc[i]/plt_cap[dfp1['plant_type'].iloc[i]]));
+        dfp1.loc[i,'adjusted_count'] = max(1, np.round(dfp1['Pmax'].iloc[i]/plt_cap[dfp1['plant_type'].iloc[i]]));
         dfp2.loc[count] = np.zeros(len(dfp1.columns));
         dfp2.iloc[count,:] = dfp1.iloc[i,:];
         count += 1;
