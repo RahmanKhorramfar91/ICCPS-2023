@@ -6,7 +6,7 @@ Created on Sun Jul 17 14:29:48 2022
 """
 from Setting import Setting,EV,GV;
 import os;import time;import csv;
-from ProblemData_UB import Rub_problem_data, time_weights;
+from ProblemData_UB import Run_problem_data, time_weights;
 # from ProblemData import Enodes,Gnodes,Branches,node2zone;
 # from ProblemData import PipeLines,Plants,eStore,Other_input,state2zone_id,plant2sym;
 # from ProblemData import sym2plant,time_weights,zone_id2state,Exist_SVL,SVLs;
@@ -18,7 +18,7 @@ import numpy as np;
 import pandas as pd;
 
 
-e_time_weight,g_time_weight,g_rep_days,e_rep_hrs,days_in_cluster,days2Medoid = time_weights(Setting.num_rep_days,Setting.rep_day_folder);
+e_time_weight,g_time_weight,g_rep_days,e_rep_hrs = time_weights(Setting.num_rep_days,Setting.rep_day_folder);
 
 # nE = len(Enodes); 
 # nG = len(Gnodes);
@@ -39,6 +39,8 @@ thermal_units = ["ng","CT","CC","CC-CCS","nuclear","nuclear-new"];
 
 def Power_System_Model(Model,Data): 
 # fetch data     
+    e_time_weight,g_time_weight,g_rep_days,e_rep_hrs = time_weights(Setting.num_rep_days,Setting.rep_day_folder);
+
     Enodes=  Data.Enodes;
     Gnodes = Data.Gnodes;
     Branches = Data.Branches;
@@ -228,9 +230,9 @@ def Power_System_Model(Model,Data):
     # C11: demand curtainlment constraint
     Model.addConstrs(EV.Shed[n,t]<= Enodes[n].demand[e_rep_hrs[t]] for  n in range(nE) for t in Te);
     
-    # C12: RPS constraints
-    VRE = ["solar","wind","wind-offshore-new","solar-UPV","wind-new"];# hydro not included
-    Model.addConstr(quicksum(e_time_weight[t]*EV.prod[n,t,i] for n in range(nE) for i in range(nPlt) for t in Te if(plant2sym[i] in VRE)) >= Setting.VRE_share*quicksum(e_time_weight[t]*Enodes[n].demand[e_rep_hrs[t]] for n in range(nE) for t in Te));
+    # # C12: RPS constraints
+    # VRE = ["solar","wind","wind-offshore-new","solar-UPV","wind-new"];# hydro not included
+    # Model.addConstr(quicksum(e_time_weight[t]*EV.prod[n,t,i] for n in range(nE) for i in range(nPlt) for t in Te if(plant2sym[i] in VRE)) >= Setting.VRE_share*quicksum(e_time_weight[t]*Enodes[n].demand[e_rep_hrs[t]] for n in range(nE) for t in Te));
     
     # C14,C15,C16 storage constraints
     Model.addConstrs(EV.eSlev[n,0,r]==eStore[r].eff_ch*EV.eSch[n,0,r]-EV.eSdis[n,0,r]/eStore[r].eff_disCh for n in range(nE) for r in range(neSt));
@@ -262,6 +264,8 @@ def Power_System_Model(Model,Data):
     
 
 def NG_System_Model(Model,Data):
+    e_time_weight,g_time_weight,g_rep_days,e_rep_hrs = time_weights(Setting.num_rep_days,Setting.rep_day_folder);
+
     # fetch data     
     Enodes=  Data.Enodes;
     Gnodes = Data.Gnodes;
@@ -323,7 +327,7 @@ def NG_System_Model(Model,Data):
     s4 = LinExpr(quicksum(SVLs[1].FOM*(Exist_SVL[j].vap_cap+GV.Xvpr[j])+SVLs[0].FOM*(Exist_SVL[j].str_cap+GV.Xstr[j]) for j in range(nSVL)));
     s5 = LinExpr(quicksum(g_time_weight[tau]*Setting.g_shed_penalty*GV.Shed[k,tau] for k in range(nG) for tau in Tg));
     s6 = LinExpr(quicksum(g_time_weight[tau]*Other_input.RNG_price*GV.RNG_use[k,tau]for k in range(nG) for tau in Tg));
-    
+     
     
     s7 = s1+s2+s3+s4+s5+s6;
     Model.addConstr(GV.inv_pipe_cost==s1);
@@ -393,6 +397,8 @@ def NG_System_Model(Model,Data):
     #Model.addConstrs(GV.Zg[b]==0 for b in range(nPipe));
 
 def Coupling_constraints(Model,Data):
+    e_time_weight,g_time_weight,g_rep_days,e_rep_hrs = time_weights(Setting.num_rep_days,Setting.rep_day_folder);
+
     # fetch data     
     Enodes=  Data.Enodes;
     Gnodes = Data.Gnodes;
@@ -452,6 +458,8 @@ def Coupling_constraints(Model,Data):
 
 
 def Get_var_vals(Model,Data):
+    e_time_weight,g_time_weight,g_rep_days,e_rep_hrs = time_weights(Setting.num_rep_days,Setting.rep_day_folder);
+
     # fetch data     
     Enodes=  Data.Enodes;
     Gnodes = Data.Gnodes;
@@ -550,7 +558,12 @@ def Get_var_vals(Model,Data):
     #                 print(f"cap: {Enodes[n].cap_factors[e_rep_hrs[t],i]}, pmax = {Plants[i].nameplate_cap}, xop:{EV.Xop_val[n,i]}")
 
 
-def Publish_results(s_time,MIP_gap,Data):
+def Publish_results(s_time,UB_val,Data):
+    if Setting.num_rep_days!=365:
+        e_time_weight,g_time_weight,g_rep_days,e_rep_hrs = time_weights(Setting.num_rep_days,Setting.rep_day_folder);
+    else:
+        e_time_weight = np.zeros(8760)+1;g_time_weight= np.zeros(365)+1;
+        e_rep_hrs = np.arange(8760); g_rep_days = np.arange(365);
     # fetch data     
     Enodes=  Data.Enodes;
     Gnodes = Data.Gnodes;
@@ -614,26 +627,28 @@ def Publish_results(s_time,MIP_gap,Data):
     #total_rng = total_rng/Setting.poss_gas_consump;
     [total_fge := total_fge+GV.flowGE_val[j,n,tau] for j in range(nG) for n in range(nE) for tau in Tg];
     elapsed = time.time()-s_time;
-    header0 = ['Power_network_size','cluster_method','Rep-Days','Emis-case','Elec_scenario', 'reduc-goal','RPS','UC-active?',
-              'UC-rlx?','int-vars-rlx?','MI-gap(%)', 'Run time(sec)','Total-cost','',
+    header0 = ['Power_network_size','spatial_cluster_method','temporal_cluster_method','Rep-Days','Emis-case','Elec_scenario', 'reduc-goal','RPS','UC-active?',
+              'UC-rlx?','int-vars-rlx?','MI-gap(%)', 'Run time(sec)','Total-cost',
               'Power-cost','est-cost','decom-cost','FOM','VOM','nuc-fuel-cost','gas-fuel-cost','startup-cost','shed-cost',
               'storage-cost','tran-est-cost','CCS-cost','emission_e','num-est-tran',
-              'total-str-lev','total-str-cap','num-est-str','total-flow','',
+              'total-str-lev','total-str-cap','num-est-str','total-flow',
               'NG-cost','NG-import-cost','RNG-import-cost','inv-storage','FOM-storage','shed-cost','pipe-est-cost',
-              'emission_g','num-est-pipe','total-ng-shed','total-RNG-import','total-flowGE','','Production:',
-              'ng','solar','wind','hydro','nuclear','CT','CC','CC-CCS','solar-UPV','wind-new','wind-offshore','nuclear-new','','established:', # production
-              'ng','solar','wind','hydro','nuclear','CT','CC','CC-CCS','solar-UPV','wind-new','wind-offshore','nuclear-new','','decommissioned:', # established
-              'ng','solar','wind','hydro','nuclear','CT','CC','CC-CCS','solar-UPV','wind-new','wind-offshore','nuclear-new','', # decommissioned
+              'emission_g','num-est-pipe','total-ng-shed','total-RNG-import','total-flowGE','Production:',
+              'ng','solar','wind','hydro','nuclear','CT','CC','CC-CCS','solar-UPV','wind-new','wind-offshore','nuclear-new','established:', # production
+              'ng','solar','wind','hydro','nuclear','CT','CC','CC-CCS','solar-UPV','wind-new','wind-offshore','nuclear-new','decommissioned:', # established
+              'ng','solar','wind','hydro','nuclear','CT','CC','CC-CCS','solar-UPV','wind-new','wind-offshore','nuclear-new', # decommissioned
               ];
-    row = []; row.append(Setting.Power_network_size); row.append(Setting.rep_day_folder);
+    row = []; row.append(Setting.Power_network_size);row.append(Setting.clustering_method);
+    row.append(Setting.rep_day_folder);
     row.append(Setting.num_rep_days);row.append(Setting.emis_case);
     row.append(Setting.electrification_scenario);
     row.append(Setting.emis_reduc_goal);
     row.append(Setting.VRE_share);row.append(Setting.UC_active);
-    row.append(Setting.relax_UC_vars);row.append(Setting.relax_int_vars);row.append(MIP_gap);
+    row.append(Setting.relax_UC_vars);row.append(Setting.relax_int_vars);
+    row.append(0);
     row.append(elapsed);
-    row.append(EV.e_system_cost_val+GV.g_system_cost_val);
-    row.append(''); 
+    row.append(UB_val+EV.e_system_cost_val+GV.g_system_cost_val);
+    
     row.append(EV.e_system_cost_val); row.append(EV.est_cost_val);
     row.append(EV.decom_cost_val); row.append(EV.FOM_cost_val);row.append(EV.VOM_cost_val);
     row.append(EV.nuc_fuel_cost_val);row.append(EV.gas_fuel_cost_val);
@@ -643,19 +658,19 @@ def Publish_results(s_time,MIP_gap,Data):
     row.append(0);
     row.append(EV.emis_amount_val);row.append(num_ze);row.append(str_lev);row.append(str_cap);
     row.append(num_e_str); row.append(total_flow);
-    row.append('');
+
     row.append(GV.g_system_cost_val);row.append(GV.import_cost_val);row.append(GV.RNG_cost_val);
     row.append(GV.inv_str_cost_val);
     row.append(GV.fom_str_cost_val);row.append(GV.shed_cost_val);row.append(GV.inv_pipe_cost_val);
     row.append(GV.emis_amount_val);row.append(num_est_pipe);row.append(total_ng_shed);
-    row.append(total_rng);row.append(total_fge);row.append('');row.append('Production:');
+    row.append(total_rng);row.append(total_fge);row.append('Production:');
     
     for i in range(nPlt):
         row.append(pr[i]);
-    row.append('');row.append('established:');
+    row.append('established:');
     for i in range(nPlt):
         row.append(est[i]);
-    row.append('');row.append('decommissioned:');
+    row.append('decommissioned:');
     for i in range(nPlt):
         row.append(dec[i]);
     
@@ -779,6 +794,7 @@ def Publish_results(s_time,MIP_gap,Data):
    
 def JPoNG_full_year_LP(Model,Data,days,hours): # used in the AAAI paper
 # fetch data     
+    # e_time_weight,g_time_weight,g_rep_days,e_rep_hrs = time_weights(Setting.num_rep_days,Setting.rep_day_folder);
 
     Enodes=  Data.Enodes;
     Gnodes = Data.Gnodes;
@@ -899,9 +915,9 @@ def JPoNG_full_year_LP(Model,Data,days,hours): # used in the AAAI paper
     # C11: demand curtainlment constraint
     Model.addConstrs(EV.Shed[n,t]<= Enodes[n].demand[hours[t]] for  n in range(nE) for t in Te);
     
-    # C12: RPS constraints
-    VRE = ["solar","wind","wind-offshore-new","solar-UPV","wind-new"];# hydro not included
-    Model.addConstr(quicksum(EV.prod[n,t,i] for n in range(nE) for i in range(nPlt) for t in Te if(plant2sym[i] in VRE)) >= Setting.VRE_share*quicksum(Enodes[n].demand[hours[t]] for n in range(nE) for t in Te));
+    # # C12: RPS constraints
+    # VRE = ["solar","wind","wind-offshore-new","solar-UPV","wind-new"];# hydro not included
+    # Model.addConstr(quicksum(EV.prod[n,t,i] for n in range(nE) for i in range(nPlt) for t in Te if(plant2sym[i] in VRE)) >= Setting.VRE_share*quicksum(Enodes[n].demand[hours[t]] for n in range(nE) for t in Te));
     
     # C14,C15,C16 storage constraints
     Model.addConstrs(EV.eSlev[n,0,r]==eStore[r].eff_ch*EV.eSch[n,0,r]-EV.eSdis[n,0,r]/eStore[r].eff_disCh for n in range(nE) for r in range(neSt));
@@ -1008,16 +1024,21 @@ def JPoNG_full_year_LP(Model,Data,days,hours): # used in the AAAI paper
     
    
     
-def enforce_inv_decisions_cluster(Original_network_size,sp, Model,nPlt):    
-    dfs = pd.read_csv(str(Original_network_size)+'_cluster_assignments.csv');
-    dff = pd.read_csv(str(sp)+'_cluster_assignments.csv'); # full network (88)
+def enforce_inv_decisions_cluster(Original_network_size,sp, Model,nPlt): 
+    e_time_weight,g_time_weight,g_rep_days,e_rep_hrs = time_weights(Setting.num_rep_days,Setting.rep_day_folder);
+
+    name =os.getcwd()+ '/power-network-clusters' +'/'+ str(Original_network_size)+'-nodes-' + Setting.clustering_method+ '.csv';
+    dfs = pd.read_csv(name);
+    name =os.getcwd()+ '/power-network-clusters' +'/'+ str(sp)+'-nodes.csv';
+    dff = pd.read_csv(name); # full network (88)
+    
     for c in range(Original_network_size):
         s1 = dfs[dfs['Cluster']==c];
         s2 = np.array(s1['Node']);
         s1 = dff[dff['Node'].isin(s2)];
         s2 = np.array(s1['Cluster'].unique());
-        Model.addConstrs(quicksum(EV.Xest[n,i] for n in s2) >= (EV.Xest_val[c,i]-1) for  i in range(nPlt));    
-        Model.addConstrs(quicksum(EV.Xdec[n,i] for n in s2) <= (EV.Xdec_val[c,i]+1) for  i in range(nPlt));
+        Model.addConstrs(quicksum(EV.Xest[n,i] for n in s2) <= np.round(EV.Xest_val[c,i]+0.99) for  i in range(nPlt));    
+        Model.addConstrs(quicksum(EV.Xdec[n,i] for n in s2) <= np.round(EV.Xdec_val[c,i]+0.99) for  i in range(nPlt));
         
     #Model.addConstr(quicksum(EV.Xest[n,i] for n in s2 for i in range(nPlt)) <= quicksum(int(EV.Xest_val[c,i]) for  i in range(nPlt)));    
     #Model.addConstr(quicksum(EV.Xdec[n,i] for n in s2 for i in range(nPlt)) <= quicksum(int(EV.Xdec_val[c,i]) for  i in range(nPlt)));    

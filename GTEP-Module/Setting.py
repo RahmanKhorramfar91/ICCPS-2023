@@ -13,7 +13,7 @@ class Setting:
     electrification_scenario = str();  #HM or RM (High-moderate or reference-moderate);
     emis_reduc_goal = float();
     VRE_share = float();
-    # RNG_cap = float(); not used anymore
+    clustering_method = str();
     
     solver_gap = float();
     wall_clock_time_lim = int();

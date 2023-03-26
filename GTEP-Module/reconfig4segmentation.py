@@ -16,14 +16,17 @@ import random;
 import os;
 import elec_funcs;
 
-def Cluster_reconfig(nC):
+def Cluster_reconfig(nC,method):
 #% Read base grid files
-    
-    dfc = pd.read_csv(str(nC)+'_cluster_assignments.csv');
+    if nC==88:
+        name =os.getcwd()+ '/power-network-clusters' +'/'+ str(nC)+'-nodes.csv';
+    else:
+        name =os.getcwd()+ '/power-network-clusters' +'/'+ str(nC)+'-nodes-' + method+ '.csv';
+    dfc = pd.read_csv(name);
     node2zone = dict(zip(dfc['Node'],dfc['Cluster']));
-    path = os.getcwd()+r'\all_cvs_files-full-network';
+    path = os.getcwd()+'/all_cvs_files-full-network';
     
-    dfb = pd.read_csv(path+r'\Region_buses.csv');
+    dfb = pd.read_csv(path+'/Region_buses.csv');
     nB = len(dfc['Cluster'].unique());
     cls2 = np.array(dfc['Cluster'].unique());
     Nodes = np.zeros((nB,2));
@@ -38,7 +41,7 @@ def Cluster_reconfig(nC):
     
     #% branch data
     
-    dfb = pd.read_csv(path+r'\Branches.csv');
+    dfb = pd.read_csv(path+'/Branches.csv');
     dfb2 = pd.DataFrame(columns=dfb.columns);
     count = 0;
     for i in range(len(dfb)):
@@ -54,7 +57,7 @@ def Cluster_reconfig(nC):
     del f1,t1,count,dfb,i;
     
     #% plant data
-    dfp = pd.read_csv(path+r'\Region_plant.csv');
+    dfp = pd.read_csv(path+'/Region_plant.csv');
     dfp['zone_id'] = np.zeros(len(dfp));
     plt_cap = {'ng':173,'solar':6.3,'wind':42,'hydro':23,'nuclear':933};
     for i in range(len(dfp)):
@@ -80,9 +83,9 @@ def Cluster_reconfig(nC):
     del dfp, dfp1,i,count,s1;
     
     #% CFs and load 
-    dfs = pd.read_csv(path+r'\solar-CF-188-nodes-synthetic.csv');
-    dfw = pd.read_csv(path+r'\solar-CF-188-nodes-synthetic.csv');
-    dfl = pd.read_csv(path+r'\bus_load_RM_2050.csv');
+    dfs = pd.read_csv(path+'/solar-CF-188-nodes-synthetic.csv');
+    dfw = pd.read_csv(path+'/solar-CF-188-nodes-synthetic.csv');
+    dfl = pd.read_csv(path+'/bus_load_RM_2050.csv');
     nB = len(dfc['Cluster'].unique())
     CFs = np.zeros((len(dfs),nB));
     CFw = np.zeros((len(dfw),nB));
@@ -101,10 +104,10 @@ def Cluster_reconfig(nC):
     
     
     #% get adjE of NG nodes
-    path = os.getcwd()+r'\Gas_System_Data';
-    dfg=pd.read_csv(path+r'\new_england_ng_nodes.csv');
-    path = os.getcwd()+r'\Power_System_Data';
-    df_b = pd.read_csv(path+r'\Region_Nodes.csv');
+    path = os.getcwd()+'/Gas_System_Data';
+    dfg=pd.read_csv(path+'/new_england_ng_nodes.csv');
+    path = os.getcwd()+'/Power_System_Data';
+    df_b = pd.read_csv(path+'/Region_Nodes.csv');
     adjE = [];
     adjE_dist=[];
     for i in range(len(dfg)):
@@ -135,19 +138,19 @@ def Cluster_reconfig(nC):
     
         
     #% Save files in the Power_System_Data folder
-    path = os.getcwd()+r'\Power_System_Data';
-    dfb2.to_csv(path+r'\Branches.csv');
+    path = os.getcwd()+'/Power_System_Data';
+    dfb2.to_csv(path+'/Branches.csv');
     
-    dfp2.to_csv(path+r'\Region_plants.csv')
+    dfp2.to_csv(path+'/Region_plants.csv')
     
-    dfs.to_csv(path+r'\profile_solar_hourly.csv');
-    dfw.to_csv(path+r'\profile_wind_hourly.csv');
-    dfl.to_csv(path+r'\zonal_load-RM.csv');
+    dfs.to_csv(path+'/profile_solar_hourly.csv');
+    dfw.to_csv(path+'/profile_wind_hourly.csv');
+    dfl.to_csv(path+'/zonal_load-RM.csv');
     
     
     dfn = pd.DataFrame(Nodes,columns=['lat','lon']);
-    dfn.to_csv(path+r'\Region_Nodes.csv',index=False);
+    dfn.to_csv(path+'/Region_Nodes.csv',index=False);
     
-    path = os.getcwd()+r'\Gas_System_Data';
-    df_adjE.to_csv(path+r'\ng_adjE.csv',index=False);
+    path = os.getcwd()+'/Gas_System_Data';
+    df_adjE.to_csv(path+'/ng_adjE.csv',index=False);
         

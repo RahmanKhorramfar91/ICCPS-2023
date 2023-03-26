@@ -9,37 +9,33 @@ import time;
 import gurobipy as gp;
 from gurobipy import GRB, quicksum,LinExpr;
 from Setting import Setting,EV,GV;
-from ProblemData_UB import Rub_problem_data, time_weights;
+from ProblemData_UB import Run_problem_data, time_weights;
 import sys; 
 import numpy as np;
+import time;
+s_time = time.time();
 #%% Set Default Setting for the Porblem 
 Setting.Power_network_size = 6; 
+Setting.clustering_method = 'GNN-0-0.5';
 import reconfig4segmentation;
-reconfig4segmentation.Cluster_reconfig(Setting.Power_network_size);
-Setting.num_rep_days = 4;
+reconfig4segmentation.Cluster_reconfig(Setting.Power_network_size,Setting.clustering_method);
+Setting.num_rep_days = 5;
 Setting.solver_gap = 0.01;
 Setting.wall_clock_time_lim = 2; #hour
-Setting.solver_thread_num = 6;
+Setting.solver_thread_num = 4;
+Setting.rep_day_folder = 'kmeans';
 
 if len(sys.argv)>1:
     print(str(sys.argv));
-    # Setting.rep_day_folder = sys.argv[1];
     Setting.Power_network_size = int(sys.argv[1]);
     Setting.num_rep_days = int(sys.argv[2]);
-    # Setting.emis_case = int(sys.argv[4]);
-    # Setting.electrification_scenario = sys.argv[5];
-    # Setting.emis_reduc_goal = float(sys.argv[6]); # %80
-    # Setting.VRE_share = float(sys.argv[7]);
-    #Setting.RNG_cap = float(sys.argv[6]);
-    Setting.solver_gap = float(sys.argv[3]);
-    Setting.wall_clock_time_lim = int(sys.argv[4]); # hour
-    # Setting.UC_active = bool(int(sys.argv[10]));
-    # Setting.relax_UC_vars = bool(int(sys.argv[11]));
-    # Setting.relax_int_vars = bool(int(sys.argv[12]));
-    Setting.solver_thread_num = int(sys.argv[5]);
+    Setting.clustering_method = sys.argv[3];
+    Setting.solver_gap = float(sys.argv[4]);
+    Setting.wall_clock_time_lim = int(sys.argv[5]); # hour
+    Setting.solver_thread_num = int(sys.argv[6]);
+    Setting.rep_day_folder = sys.argv[7];
 
 
-Setting.rep_day_folder = 'joint_CF_with_extreme_days';
 Setting.emis_case = 4;
 Setting.electrification_scenario = 'RM';   # currently HM and RM, but can be MM, MS,MR etc.
 Setting.emis_reduc_goal = 0.8; # %80
@@ -47,22 +43,21 @@ Setting.VRE_share = 0.0;
 Setting.UC_active = False;
 Setting.relax_UC_vars = True;
 Setting.relax_int_vars = 0;
-Setting.e_shed_penalty = 1e4;
-Setting.g_shed_penalty = 1e4;
+Setting.e_shed_penalty = 5e2;
+Setting.g_shed_penalty = 5e2;
 Setting.wall_clock_time_lim = Setting.wall_clock_time_lim*3600; # convert to second for Gurobi
-Setting.print_result_header = 1;
-Setting.copper_plate_approx = 0; 
+Setting.print_result_header = 0;
+Setting.copper_plate_approx = 1; 
 Setting.print_all_vars = 0;
 s_time = time.time();
 
 
 Original_network_size = Setting.Power_network_size;
-print(sys.argv);
 #%% run for the rep day model 
 # step 1: solve the model for rep days 
 Setting.UC_active = False;
 Model = gp.Model();
-Data = Rub_problem_data();
+Data = Run_problem_data();
 import Modules_UB;
 
 Modules_UB.Power_System_Model(Model,Data); # Power System
@@ -77,9 +72,9 @@ Model.setParam('OutputFlag', 0);
 Model.setParam('MIPGap', Setting.solver_gap);
 Model.setParam('Timelimit', Setting.wall_clock_time_lim);
 Model.optimize();
-print(f"Num of Vars: {Model.NumVars}");
-print(f"Num of Int Vars: {Model.NumIntVars}");
-print(f"Num of Constraints: {Model.NumConstrs}");
+# print(f"Num of Vars: {Model.NumVars}");
+# print(f"Num of Int Vars: {Model.NumIntVars}");
+# print(f"Num of Constraints: {Model.NumConstrs}");
 
 # get the values of integer variables
 EV.Xop_val = Model.getAttr('x',EV.Xop);
@@ -89,24 +84,25 @@ EV.Ze_val = Model.getAttr('x',EV.Ze);
 GV.Zg_val = Model.getAttr('x',GV.Zg);
 
 Modules_UB.Get_var_vals(Model,Data)
-print(f"rep days obj val: {Model.objVal}");
+s1_time = time.time();
+print(sys.argv);
+print(f"Step 1: obj val: {Model.objVal} \t CPU time: {s1_time-s_time}");
 Modules_UB.Publish_results(s_time,0,Data);
 
 
-#%% solve the full network with a few rep days (2) and 
+#%% Step 2: solve the full network with a few rep days (2) and 
 # impose the sum of investment decisions for the nodes of each cluster 
 # to be equal to the investent deicision from step 1
 Model = gp.Model();
 
 Setting.Power_network_size = 88; #88 or 6 
 
-reconfig4segmentation.Cluster_reconfig(Setting.Power_network_size);
+reconfig4segmentation.Cluster_reconfig(Setting.Power_network_size,Setting.clustering_method);
 
-Setting.rep_day_folder = 'joint_CF_with_extreme_days';
-Setting.num_rep_days = 4;
+Setting.num_rep_days = 2;
 del Modules_UB;
 
-Data = Rub_problem_data();
+Data = Run_problem_data();
 import Modules_UB;
 
 #Modules.run_preamble_again();
@@ -136,7 +132,9 @@ EV.Ze_val = Model.getAttr('x',EV.Ze);
 GV.Zg_val = Model.getAttr('x',GV.Zg);
 Setting.print_all_vars = 0;
 Modules_UB.Publish_results(s_time,0,Data);
-print(f"full problem, few days, cluster investmen imposed. Obj value: {Model.objVal}")
+s2_time = time.time();
+print(sys.argv);
+print(f"Step 2: Obj value: {Model.objVal} \t CPU time: {s2_time-s1_time}");
 
 #%% solve the full problem for the full year on a rolling-horizon bases
 # slided the full year into 12 parts (one month), and set the final-day storage level to 0. 
@@ -181,7 +179,7 @@ EV.eSlev_val = Model.getAttr('x',EV.eSlev);
 EV.Shed_val = Model.getAttr('x',EV.Shed);
 EV.eSdis_val = Model.getAttr('x',EV.eSdis);
 EV.eSch_val = Model.getAttr('x',EV.eSch);    
-EV.est_cost_val = EV.est_cost.X;
+EV.est_cost_val = UB_val; # it is zero,  so set it to UB
 EV.decom_cost_val = EV.decom_cost.X;
 EV.FOM_cost_val = EV.FOM_cost.X;
 EV.VOM_cost_val = EV.VOM_cost.X;
@@ -214,13 +212,16 @@ if Setting.emis_case==1:
    
 GV.RNG_cost_val = GV.RNG_cost.X;
 GV.fom_str_cost_val = GV.fom_str_cost.X;
-GV.shed_cost_val = UB_val;  # note this. NG shedding is usually zero, so set it to UB
+GV.shed_cost_val = GV.shed_cost.X;  # note this. NG shedding is usually 
 GV.inv_pipe_cost_val = GV.inv_pipe_cost.X;
 GV.emis_amount_val = GV.emis_amount.X;
 GV.inv_str_cost_val = GV.inv_str_cost.X;
 Setting.print_all_vars = 1;
-Modules_UB.Publish_results(s_time,0,Data);
-print(f"Upper Bound is: {UB_val}");
+Modules_UB.Publish_results(s_time,UB_val,Data);
+s3_time = time.time();
+print(sys.argv);
+print(f"Step 3 Obj (feasible solution obj): {Model.objVal} \t CPU time:{s3_time-s2_time}");
+print(f"Total elapsed time: {s3_time-s_time}");
 #    s1 = LinExpr(quicksum(PipeLines[b].inv_coef*PipeLines[b].length*Other_input.pipe_per_mile*GV.Zg_val[b] for b in range(nPipe)));   
 #    tran_cost = LinExpr(quicksum(Branches[b].est_coef*Other_input.trans_unit_cost*Branches[b].maxFlow*Branches[b].length*EV.Ze_val[b] for b in range(nBr)));
 #    est_cost = LinExpr(quicksum(Plants[i].capex*EV.Xest_val[n,i] for n in range(nE) for i in range(nPlt) if Plants[i].is_exist==0));
